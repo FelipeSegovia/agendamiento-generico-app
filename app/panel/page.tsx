@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { Button } from "@/components/ui/button";
+import { formatAppointmentTime } from "@/lib/dates";
 import { requireSessionProfessional, sessionCookieHeader } from "@/lib/session";
 import { logoutProfessional, type WeeklyTemplateRangeData } from "./actions";
 import { ServiceForm } from "./service-form";
@@ -42,6 +43,27 @@ async function fetchWeeklyTemplate(): Promise<PanelWeeklyTemplateRange[]> {
   return ranges;
 }
 
+// Forma de respuesta de GET /api/appointments.
+type PanelAppointment = {
+  id: string;
+  startsAt: string;
+  endsAt: string;
+  status: "pending" | "confirmed";
+  service: { name: string };
+  client: { name: string; email: string; phone: string };
+};
+
+async function fetchUpcomingAppointments(): Promise<PanelAppointment[]> {
+  const response = await fetch(`${process.env.API_URL}/api/appointments`, {
+    headers: await sessionCookieHeader(),
+  });
+  if (!response.ok) {
+    throw new Error(`La API respondió ${response.status} al pedir las citas.`);
+  }
+  const appointments: PanelAppointment[] = await response.json();
+  return appointments;
+}
+
 export default function PanelPage() {
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 px-4 py-12">
@@ -59,7 +81,8 @@ export default function PanelPage() {
 
 async function PanelContent() {
   const professional = await requireSessionProfessional();
-  const [services, weeklyTemplateRanges] = await Promise.all([
+  const [appointments, services, weeklyTemplateRanges] = await Promise.all([
+    fetchUpcomingAppointments(),
     fetchServices(),
     fetchWeeklyTemplate(),
   ]);
@@ -79,6 +102,38 @@ async function PanelContent() {
           </Button>
         </form>
       </div>
+
+      <section className="flex flex-col gap-4">
+        <h2 className="text-lg font-semibold">Próximas citas</h2>
+        {appointments.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            Aún no tienes citas. Comparte tu página para que tus clientes
+            reserven.
+          </p>
+        ) : (
+          <ul className="flex flex-col divide-y rounded-lg border">
+            {appointments.map((appointment) => (
+              <li
+                key={appointment.id}
+                className="flex flex-col gap-1 px-4 py-3"
+              >
+                <span className="font-medium first-letter:uppercase">
+                  {formatAppointmentTime(
+                    appointment.startsAt,
+                    professional.timezone,
+                  )}
+                </span>
+                <span className="text-sm">
+                  {appointment.service.name} · {appointment.client.name}
+                </span>
+                <span className="text-sm text-muted-foreground">
+                  {appointment.client.phone} · {appointment.client.email}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       <section className="flex flex-col gap-4">
         <h2 className="text-lg font-semibold">Tus servicios</h2>

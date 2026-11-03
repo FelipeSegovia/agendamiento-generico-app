@@ -2,6 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { buttonVariants } from "@/components/ui/button";
+import { formatAppointmentTime } from "@/lib/dates";
+import { BookingForm } from "./booking-form";
 
 // Forma de respuesta de GET /api/professionals/:slug. Solo trae datos públicos.
 type PublicProfile = {
@@ -27,11 +29,18 @@ const dayLabelFormat = new Intl.DateTimeFormat("es-CL", {
   timeZone: "UTC",
 });
 
-const pageHref = (slug: string, serviceId: string, from?: string) =>
+// Con un cupo elegido, el ancla lleva al formulario de reserva.
+const pageHref = (
+  slug: string,
+  serviceId: string,
+  from?: string,
+  slotStartsAt?: string,
+) =>
   `/profesional/${slug}?${new URLSearchParams({
     servicio: serviceId,
     ...(from && { desde: from }),
-  })}`;
+    ...(slotStartsAt && { cupo: slotStartsAt }),
+  })}${slotStartsAt ? "#reserva" : ""}`;
 
 export default function PublicProfilePage({
   params,
@@ -72,7 +81,7 @@ async function PublicProfileContent({
   searchParams,
 }: Pick<PageProps<"/profesional/[slug]">, "params" | "searchParams">) {
   const { slug } = await params;
-  const { servicio, desde } = await searchParams;
+  const { servicio, desde, cupo, reservada } = await searchParams;
   const response = await fetch(
     `${process.env.API_URL}/api/professionals/${encodeURIComponent(slug)}`,
   );
@@ -101,10 +110,24 @@ async function PublicProfileContent({
     selectedService.id,
     typeof desde === "string" ? desde : undefined,
   );
+  // Si otro cliente lo tomó, el cupo elegido ya no viene en la semana.
+  const selectedSlot = week.days
+    .flatMap((day) => day.slots)
+    .find((slot) => slot.startsAt === cupo);
 
   return (
     <>
       <h1 className="text-2xl font-semibold">{profile.name}</h1>
+
+      {typeof reservada === "string" && (
+        <p
+          role="status"
+          className="rounded-lg border bg-muted px-4 py-3 text-sm"
+        >
+          Tu hora de {selectedService.name} quedó reservada para el{" "}
+          {formatAppointmentTime(reservada, week.timezone)}.
+        </p>
+      )}
 
       <section className="flex flex-col gap-3">
         <h2 className="text-lg font-semibold">Elige un servicio</h2>
@@ -136,6 +159,31 @@ async function PublicProfileContent({
           </p>
         </div>
 
+        {typeof cupo === "string" && (
+          <div
+            id="reserva"
+            className="flex flex-col gap-4 rounded-lg border px-4 py-4"
+          >
+            {selectedSlot ? (
+              <>
+                <h3 className="font-medium">
+                  Reservar {selectedService.name} el{" "}
+                  {formatAppointmentTime(selectedSlot.startsAt, week.timezone)}
+                </h3>
+                <BookingForm
+                  slug={slug}
+                  serviceId={selectedService.id}
+                  startsAt={selectedSlot.startsAt}
+                />
+              </>
+            ) : (
+              <p role="alert" className="text-sm text-destructive">
+                Ese horario ya no está disponible. Elige otro.
+              </p>
+            )}
+          </div>
+        )}
+
         {week.days.length === 0 ? (
           <p className="text-muted-foreground">
             No hay horas disponibles en estos días.
@@ -148,14 +196,28 @@ async function PublicProfileContent({
                   {dayLabelFormat.format(new Date(`${day.date}T00:00:00Z`))}
                 </h3>
                 <ul className="flex flex-wrap gap-2">
-                  {day.slots.map((slot) => (
-                    <li
-                      key={slot.startsAt}
-                      className="rounded-md border px-3 py-1 text-sm tabular-nums"
-                    >
-                      {slot.time}
-                    </li>
-                  ))}
+                  {day.slots.map((slot) => {
+                    const isSelected = slot.startsAt === selectedSlot?.startsAt;
+                    return (
+                      <li key={slot.startsAt}>
+                        <Link
+                          href={pageHref(
+                            slug,
+                            selectedService.id,
+                            week.from,
+                            slot.startsAt,
+                          )}
+                          aria-current={isSelected ? "true" : undefined}
+                          className={`${buttonVariants({
+                            variant: isSelected ? "default" : "outline",
+                            size: "sm",
+                          })} tabular-nums`}
+                        >
+                          {slot.time}
+                        </Link>
+                      </li>
+                    );
+                  })}
                 </ul>
               </li>
             ))}
