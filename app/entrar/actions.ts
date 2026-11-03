@@ -29,7 +29,6 @@ export async function loginProfessional(
 ): Promise<LoginState> {
   let response: Response;
   try {
-    // Corre en el servidor de Next, así que API_URL no se expone al navegador.
     response = await fetch(`${process.env.API_URL}/api/auth/login`, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -39,16 +38,13 @@ export async function loginProfessional(
     return { error: LOGIN_UNAVAILABLE_MESSAGE };
   }
 
-  // 400 o 401: la API ya trae el mensaje en español listo para mostrar en el formulario.
   if (!response.ok) {
     const errorBody: ApiErrorResponse = await response.json();
     return { error: errorBody.message };
   }
 
-  // Un `Set-Cookie` se ve así: `professional_session=<jwt>; Max-Age=604800; Path=/; HttpOnly; ...`.
-  // `getSetCookie()` devuelve cada uno por separado, y se busca el de la sesión por su nombre.
   const sessionCookie = response.headers
-    .getSetCookie()
+    .getSetCookie() // convierte las cookies en un arreglo, estas se ve así: `professional_session=<jwt>; Max-Age=604800; Path=/; HttpOnly; ...`
     .find((setCookie) => setCookie.startsWith(`${SESSION_COOKIE_NAME}=`));
   if (!sessionCookie) return { error: LOGIN_UNAVAILABLE_MESSAGE };
 

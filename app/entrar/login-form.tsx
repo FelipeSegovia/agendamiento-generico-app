@@ -7,9 +7,9 @@ import {
   useState,
 } from "react";
 import { z } from "zod";
+import { Field, fieldErrorsFrom } from "@/components/field";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { type LoginCredentials, loginProfessional } from "./actions";
 
 const loginSchema = z.object({
@@ -36,14 +36,7 @@ export function LoginForm() {
       Object.fromEntries(new FormData(event.currentTarget)),
     );
     if (!result.success) {
-      setFieldErrors(
-        Object.fromEntries(
-          result.error.issues.map((issue) => [
-            String(issue.path[0]),
-            issue.message,
-          ]),
-        ),
-      );
+      setFieldErrors(fieldErrorsFrom(result.error));
       return;
     }
     setFieldErrors({});
@@ -75,25 +68,5 @@ export function LoginForm() {
         {isPending ? "Entrando…" : "Entrar"}
       </Button>
     </form>
-  );
-}
-
-function Field({
-  id,
-  label,
-  error,
-  children,
-}: {
-  id: string;
-  label: string;
-  error?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <Label htmlFor={id}>{label}</Label>
-      {children}
-      {error && <p className="text-sm text-destructive">{error}</p>}
-    </div>
   );
 }

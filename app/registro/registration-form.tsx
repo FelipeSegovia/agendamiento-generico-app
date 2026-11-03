@@ -9,9 +9,9 @@ import {
 } from "react";
 import { LuCircleCheck } from "react-icons/lu";
 import { z } from "zod";
+import { Field, fieldErrorsFrom } from "@/components/field";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { type RegistrationData, registerProfessional } from "./actions";
 
 // Mismas reglas y mensajes que el DTO de la API; la API es la que decide.
@@ -74,14 +74,7 @@ export function RegistrationForm() {
       Object.fromEntries(new FormData(event.currentTarget)),
     );
     if (!result.success) {
-      setFieldErrors(
-        Object.fromEntries(
-          result.error.issues.map((issue) => [
-            String(issue.path[0]),
-            issue.message,
-          ]),
-        ),
-      );
+      setFieldErrors(fieldErrorsFrom(result.error));
       return;
     }
     setFieldErrors({});
@@ -94,7 +87,7 @@ export function RegistrationForm() {
         <LuCircleCheck className="size-8 text-green-600" aria-hidden />
         <p className="font-medium">Cuenta creada.</p>
         <p className="text-sm text-muted-foreground">
-          Tu página pública quedará en /p/{state.slug}.
+          Tu página pública quedará en /profesional/{state.slug}.
         </p>
         <Link
           href="/entrar"
@@ -137,7 +130,7 @@ export function RegistrationForm() {
 
       <Field id="slug" label="Dirección de tu página" error={fieldErrors.slug}>
         <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground">/p/</span>
+          <span className="text-sm text-muted-foreground">/profesional/</span>
           <Input
             id="slug"
             name="slug"
@@ -160,25 +153,5 @@ export function RegistrationForm() {
         {isPending ? "Creando cuenta…" : "Crear cuenta"}
       </Button>
     </form>
-  );
-}
-
-function Field({
-  id,
-  label,
-  error,
-  children,
-}: {
-  id: string;
-  label: string;
-  error?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <Label htmlFor={id}>{label}</Label>
-      {children}
-      {error && <p className="text-sm text-destructive">{error}</p>}
-    </div>
   );
 }

@@ -12,13 +12,17 @@ export type SessionProfessional = {
   timezone: string;
 };
 
-// Devuelve el profesional de la sesión. Sin una sesión válida, manda a iniciar sesión.
-export async function requireSessionProfessional(): Promise<SessionProfessional> {
+// Header para llamar a la API como el profesional de la sesión. Sin cookie, manda a iniciar sesión.
+export async function sessionCookieHeader(): Promise<{ cookie: string }> {
   const sessionToken = (await cookies()).get(SESSION_COOKIE_NAME)?.value;
   if (!sessionToken) redirect("/entrar");
+  return { cookie: `${SESSION_COOKIE_NAME}=${sessionToken}` };
+}
 
+// Devuelve el profesional de la sesión. Sin una sesión válida, manda a iniciar sesión.
+export async function requireSessionProfessional(): Promise<SessionProfessional> {
   const response = await fetch(`${process.env.API_URL}/api/auth/me`, {
-    headers: { cookie: `${SESSION_COOKIE_NAME}=${sessionToken}` },
+    headers: await sessionCookieHeader(),
   });
   if (response.status === 401) redirect("/entrar");
   if (!response.ok) {
