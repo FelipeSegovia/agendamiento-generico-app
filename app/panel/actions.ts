@@ -62,3 +62,46 @@ export async function createService(
   refresh();
   return { ok: true, name: createdService.name };
 }
+
+export type WeeklyTemplateRangeData = {
+  weekday: number;
+  startTime: string;
+  endTime: string;
+};
+
+export type WeeklyTemplateState =
+  | { ok: true }
+  | { ok: false; error: string }
+  | null;
+
+// Reemplaza la plantilla completa; la API valida rangos invertidos y solapes.
+export async function saveWeeklyTemplate(
+  _previousState: WeeklyTemplateState,
+  ranges: WeeklyTemplateRangeData[],
+): Promise<WeeklyTemplateState> {
+  let response: Response;
+  try {
+    response = await fetch(`${process.env.API_URL}/api/weekly-template`, {
+      method: "PUT",
+      headers: {
+        "content-type": "application/json",
+        ...(await sessionCookieHeader()),
+      },
+      body: JSON.stringify({ ranges }),
+    });
+  } catch {
+    return {
+      ok: false,
+      error: "No pudimos guardar tu horario. Intenta de nuevo.",
+    };
+  }
+
+  if (response.status === 401) redirect("/entrar");
+  if (!response.ok) {
+    const errorBody: ApiErrorResponse = await response.json();
+    return { ok: false, error: errorBody.message };
+  }
+
+  refresh();
+  return { ok: true };
+}

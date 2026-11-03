@@ -1,8 +1,9 @@
 import { Suspense } from "react";
 import { Button } from "@/components/ui/button";
 import { requireSessionProfessional, sessionCookieHeader } from "@/lib/session";
-import { logoutProfessional } from "./actions";
+import { logoutProfessional, type WeeklyTemplateRangeData } from "./actions";
 import { ServiceForm } from "./service-form";
+import { WeeklyTemplateForm } from "./weekly-template-form";
 
 // Forma de respuesta de GET /api/services.
 type PanelService = {
@@ -25,6 +26,22 @@ async function fetchServices(): Promise<PanelService[]> {
   return services;
 }
 
+// Forma de respuesta de GET /api/weekly-template.
+type PanelWeeklyTemplateRange = WeeklyTemplateRangeData & { id: string };
+
+async function fetchWeeklyTemplate(): Promise<PanelWeeklyTemplateRange[]> {
+  const response = await fetch(`${process.env.API_URL}/api/weekly-template`, {
+    headers: await sessionCookieHeader(),
+  });
+  if (!response.ok) {
+    throw new Error(
+      `La API respondió ${response.status} al pedir el horario semanal.`,
+    );
+  }
+  const ranges: PanelWeeklyTemplateRange[] = await response.json();
+  return ranges;
+}
+
 export default function PanelPage() {
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 px-4 py-12">
@@ -42,7 +59,10 @@ export default function PanelPage() {
 
 async function PanelContent() {
   const professional = await requireSessionProfessional();
-  const services = await fetchServices();
+  const [services, weeklyTemplateRanges] = await Promise.all([
+    fetchServices(),
+    fetchWeeklyTemplate(),
+  ]);
 
   return (
     <>
@@ -84,6 +104,16 @@ async function PanelContent() {
           </ul>
         )}
         <ServiceForm />
+      </section>
+
+      <section className="flex flex-col gap-4">
+        <div className="flex flex-col gap-1">
+          <h2 className="text-lg font-semibold">Tu horario semanal</h2>
+          <p className="text-sm text-muted-foreground">
+            Tus clientes solo verán horas dentro de estos rangos.
+          </p>
+        </div>
+        <WeeklyTemplateForm initialRanges={weeklyTemplateRanges} />
       </section>
     </>
   );
