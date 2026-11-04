@@ -2,8 +2,13 @@ import { Suspense } from "react";
 import { Button } from "@/components/ui/button";
 import { formatAppointmentTime } from "@/lib/dates";
 import { requireSessionProfessional, sessionCookieHeader } from "@/lib/session";
-import { logoutProfessional, type WeeklyTemplateRangeData } from "./actions";
+import {
+  logoutProfessional,
+  type SettingsData,
+  type WeeklyTemplateRangeData,
+} from "./actions";
 import { ServiceForm } from "./service-form";
+import { SettingsForm } from "./settings-form";
 import { WeeklyTemplateForm } from "./weekly-template-form";
 
 // Forma de respuesta de GET /api/services.
@@ -43,6 +48,21 @@ async function fetchWeeklyTemplate(): Promise<PanelWeeklyTemplateRange[]> {
   return ranges;
 }
 
+async function fetchSettings(): Promise<SettingsData> {
+  const response = await fetch(`${process.env.API_URL}/api/settings`, {
+    headers: await sessionCookieHeader(),
+  });
+  if (!response.ok) {
+    throw new Error(
+      `La API respondió ${response.status} al pedir la configuración.`,
+    );
+  }
+  const settings: SettingsData = await response.json();
+  return settings;
+}
+
+const STATUS_LABELS = { pending: "Pendiente", confirmed: "Confirmada" };
+
 // Forma de respuesta de GET /api/appointments.
 type PanelAppointment = {
   id: string;
@@ -81,11 +101,13 @@ export default function PanelPage() {
 
 async function PanelContent() {
   const professional = await requireSessionProfessional();
-  const [appointments, services, weeklyTemplateRanges] = await Promise.all([
-    fetchUpcomingAppointments(),
-    fetchServices(),
-    fetchWeeklyTemplate(),
-  ]);
+  const [appointments, services, weeklyTemplateRanges, settings] =
+    await Promise.all([
+      fetchUpcomingAppointments(),
+      fetchServices(),
+      fetchWeeklyTemplate(),
+      fetchSettings(),
+    ]);
 
   return (
     <>
@@ -124,7 +146,8 @@ async function PanelContent() {
                   )}
                 </span>
                 <span className="text-sm">
-                  {appointment.service.name} · {appointment.client.name}
+                  {appointment.service.name} · {appointment.client.name} ·{" "}
+                  {STATUS_LABELS[appointment.status]}
                 </span>
                 <span className="text-sm text-muted-foreground">
                   {appointment.client.phone} · {appointment.client.email}
@@ -169,6 +192,17 @@ async function PanelContent() {
           </p>
         </div>
         <WeeklyTemplateForm initialRanges={weeklyTemplateRanges} />
+      </section>
+
+      <section className="flex flex-col gap-4">
+        <div className="flex flex-col gap-1">
+          <h2 className="text-lg font-semibold">Confirmación de citas</h2>
+          <p className="text-sm text-muted-foreground">
+            Mientras quede plazo, la cita nace pendiente. Si reservan con el
+            plazo vencido, nace confirmada.
+          </p>
+        </div>
+        <SettingsForm initialSettings={settings} />
       </section>
     </>
   );

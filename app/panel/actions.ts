@@ -105,3 +105,38 @@ export async function saveWeeklyTemplate(
   refresh();
   return { ok: true };
 }
+
+export type SettingsData = { confirmationDeadlineHours: number };
+
+export type SettingsState = { ok: true } | { ok: false; error: string } | null;
+
+export async function saveSettings(
+  _previousState: SettingsState,
+  settings: SettingsData,
+): Promise<SettingsState> {
+  let response: Response;
+  try {
+    response = await fetch(`${process.env.API_URL}/api/settings`, {
+      method: "PUT",
+      headers: {
+        "content-type": "application/json",
+        ...(await sessionCookieHeader()),
+      },
+      body: JSON.stringify(settings),
+    });
+  } catch {
+    return {
+      ok: false,
+      error: "No pudimos guardar el plazo. Intenta de nuevo.",
+    };
+  }
+
+  if (response.status === 401) redirect("/entrar");
+  if (!response.ok) {
+    const errorBody: ApiErrorResponse = await response.json();
+    return { ok: false, error: errorBody.message };
+  }
+
+  refresh();
+  return { ok: true };
+}
